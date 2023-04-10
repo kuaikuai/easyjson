@@ -586,7 +586,6 @@ func (r *Lexer) SkipRecursive() {
 func (r *Lexer) SkipRecursiveNoCheck() {
 	r.scanToken()
 	var start, end byte
-	startPos := r.start
 
 	switch r.token.delimValue {
 	case '{':
