@@ -583,9 +583,67 @@ func (r *Lexer) SkipRecursive() {
 	}
 }
 
+func (r *Lexer) SkipRecursiveNoCheck() {
+	r.scanToken()
+	var start, end byte
+	startPos := r.start
+
+	switch r.token.delimValue {
+	case '{':
+		start, end = '{', '}'
+	case '[':
+		start, end = '[', ']'
+	default:
+		r.consume()
+		return
+	}
+
+	r.consume()
+
+	level := 1
+	inQuotes := false
+	wasEscape := false
+
+	for i, c := range r.Data[r.pos:] {
+		switch {
+		case c == start && !inQuotes:
+			level++
+		case c == end && !inQuotes:
+			level--
+			if level == 0 {
+				r.pos += i + 1
+                                // no check
+				return
+			}
+		case c == '\\' && inQuotes:
+			wasEscape = !wasEscape
+			continue
+		case c == '"' && inQuotes:
+			inQuotes = wasEscape
+		case c == '"':
+			inQuotes = true
+		}
+		wasEscape = false
+	}
+	r.pos = len(r.Data)
+	r.fatalError = &LexerError{
+		Reason: "EOF reached while skipping array/object or token",
+		Offset: r.pos,
+		Data:   string(r.Data[r.pos:]),
+	}
+}
+
 // Raw fetches the next item recursively as a data slice
 func (r *Lexer) Raw() []byte {
 	r.SkipRecursive()
+	if !r.Ok() {
+		return nil
+	}
+	return r.Data[r.start:r.pos]
+}
+
+func (r *Lexer) RawNoCheck() []byte {
+	r.SkipRecursiveNoCheck()
 	if !r.Ok() {
 		return nil
 	}
